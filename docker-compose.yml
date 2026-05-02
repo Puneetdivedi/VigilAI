@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.api
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data
+      - ./ml/models:/app/ml/models
+      - ./rag/faiss_index:/app/rag/faiss_index
+      - ./db/vigilai.db:/app/data/vigilai.db
+    environment:
+      - DATABASE_URL=sqlite:///./data/vigilai.db
+      - MLFLOW_TRACKING_URI=http://mlflow:5000
+      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    depends_on:
+      - mlflow
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dashboard
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://api:8000
+    depends_on:
+      - api
+
+  mlflow:
+    image: ghcr.io/mlflow/mlflow
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./mlruns:/mlruns
+    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:////mlruns/mlflow.db --default-artifact-root /mlruns

@@ -1,96 +1,171 @@
 # VigilAI — Equipment Intelligence Platform
 
-VigilAI is an end-to-end industrial equipment monitoring platform that leverages machine learning and multi-agent systems to detect machine faults and provide actionable diagnostic reports. It simulates high-frequency sensor data, identifies anomalies using advanced ensemble models, and retrieves maintenance knowledge through a RAG pipeline. The system is designed to bridge the gap between raw telemetry and human-readable maintenance strategy.
+> **End-to-end AI-powered industrial equipment monitoring** — from raw sensor telemetry to plain-English diagnostic reports via a LangGraph multi-agent pipeline.
 
-## Architecture
+[![CI](https://github.com/Puneetdivedi/VigilAI/actions/workflows/ci.yml/badge.svg)](https://github.com/Puneetdivedi/VigilAI/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/Python-3.11-blue?logo=python)
+![FastAPI](https://img.shields.io/badge/FastAPI-0.110-green?logo=fastapi)
+![Streamlit](https://img.shields.io/badge/Streamlit-1.33-red?logo=streamlit)
+![MLflow](https://img.shields.io/badge/MLflow-2.12-blue?logo=mlflow)
+![Docker](https://img.shields.io/badge/Docker-ready-blue?logo=docker)
 
-```text
-+-----------------------+      +-----------------------+      +-----------------------+
-|   Synthetic Data Gen  | ---> |   ML Models (RF/XGB)  | ---> |   FAISS Vector Store  |
-| (Vibration/Temp/RPM)  |      |   Anomaly Detection   |      |   (Maintenance Docs)  |
-+-----------+-----------+      +-----------+-----------+      +-----------+-----------+
-            |                              |                             |
-            v                              v                             v
-+-------------------------------------------------------------------------------------+
-|                             LangGraph Multi-Agent System                            |
-|        Anomaly Detector -> RAG Retriever -> LLM Report Writer (Llama 3)            |
-+------------------------------------------+------------------------------------------+
-                                           |
-                                           v
-+-----------------------+      +-----------------------+      +-----------------------+
-|     FastAPI REST      | <--- |    SQLite/Postgres    | ---> |  Streamlit Dashboard  |
-|      Endpoints        |      |    (Data Persistence) |      |   (Real-time Visuals) |
-+-----------------------+      +-----------------------+      +-----------------------+
+---
+
+## 🏗️ Architecture
+
+```
+Sensor Data (synthetic) ──▶ ML Models (RF / XGBoost / IsoForest)
+                                │
+                                ▼
+                        LangGraph Pipeline
+                        ┌───────────────────────────────────┐
+                        │ 1. anomaly_detector_node (ML)      │
+                        │ 2. rag_retriever_node  (FAISS)     │
+                        │ 3. report_writer_node  (Gemini LLM)│
+                        └───────────────────────────────────┘
+                                │
+                                ▼
+                  FastAPI REST API  ◀──▶  Streamlit Dashboard
+                        │
+                        ▼
+              SQLite (via SQLAlchemy ORM)
+                        │
+                        ▼
+               MLflow Experiment Tracking
 ```
 
-## Tech Stack
+---
 
-| Tool | Purpose | Free? |
-| :--- | :--- | :--- |
-| Ollama (Llama 3) | Local LLM for Report Generation | Yes |
-| Sentence-Transformers| Embedding generation (HuggingFace) | Yes |
-| FAISS | Local Vector Database | Yes |
-| Scikit-learn / XGBoost| Fault classification & Anomaly scoring | Yes |
-| FastAPI | Backend REST API | Yes |
-| Streamlit | Real-time interactive dashboard | Yes |
-| MLflow | Experiment tracking | Yes |
-| Docker / Compose | Containerization & Orchestration | Yes |
+## 🚀 Quickstart
 
-## Quick Start
+### 1. Clone & Install
 
-1. **Clone and Install:**
-   ```bash
-   pip install -r requirements.txt
-   cp .env.example .env
-   ```
+```bash
+git clone https://github.com/Puneetdivedi/VigilAI.git
+cd VigilAI
+pip install -r requirements.txt
+```
 
-2. **Generate Data:**
-   ```bash
-   make generate-data
-   ```
+### 2. Configure Environment
 
-3. **Train Models:**
-   ```bash
-   make train
-   ```
+```bash
+cp .env.example .env
+# Edit .env — set GOOGLE_API_KEY (or GROQ_API_KEY) for LLM support
+```
 
-4. **Build RAG Index:**
-   ```bash
-   make build-index
-   ```
+LLM priority: **Google Gemini → Groq → Ollama → rule-based fallback**
 
-5. **Launch Application:**
-   ```bash
-   # Option A: Local
-   make run-api
-   # (In another terminal)
-   make run-dashboard
+### 3. Run the Full Pipeline
 
-   # Option B: Docker
-   make run-all
-   ```
+```bash
+# Generate synthetic sensor data
+python data/generate_data.py
 
-## API Reference
+# Train ML models (logs to MLflow)
+python ml/train.py
 
-- `POST /sensors/ingest`: Ingest new telemetry.
-- `GET /sensors/latest`: Retrieve recent telemetry.
-- `POST /ml/predict`: Get fault label and confidence.
-- `POST /agents/diagnose`: Trigger full multi-agent diagnostic pipeline.
-- `GET /agents/reports`: Fetch historical diagnostic reports.
+# Build the FAISS RAG index
+python rag/build_index.py
 
-## Project Structure
+# (Optional) Run a single end-to-end demo
+python demo_run.py
+```
 
-- `agents/`: LangGraph orchestration and node logic.
-- `api/`: FastAPI routes and Pydantic models.
-- `dashboard/`: Streamlit visualization frontend.
-- `data/`: Synthetic data generation and CSV storage.
-- `ml/`: Feature engineering and model training logic.
-- `rag/`: Vector store indexing and retrieval.
+### 4. Start Services
 
-## Resume Blurb
+```bash
+# API server (port 8000)
+uvicorn api.main:app --reload --port 8000
 
-**AI Engineer / Data Scientist**
-*   Developed **VigilAI**, a production-ready industrial monitoring platform integrating **FastAPI**, **LangGraph**, and **MLflow**.
-*   Implemented a **Multi-Agent RAG system** using **Ollama (Llama 3)** and **FAISS** to automate equipment diagnostics, reducing manual triage time by an estimated 60%.
-*   Engineered a predictive pipeline with **Random Forest** and **XGBoost** for fault classification, achieving high precision across synthetic industrial datasets.
-*   Containerized the entire stack with **Docker** and implemented **CI/CD via GitHub Actions** for automated testing and linting.
+# Dashboard (port 8501)
+streamlit run dashboard/app.py
+
+# MLflow tracking UI (port 5000)
+mlflow ui
+```
+
+Or use **Docker Compose**:
+
+```bash
+docker-compose up --build
+```
+
+---
+
+## 🧩 Project Structure
+
+```
+VigilAI/
+├── agents/           # LangGraph nodes + graph + prompts
+├── api/              # FastAPI app, routers, Pydantic models
+│   └── routers/      # sensors / ml / agents endpoints
+├── dashboard/        # Premium Streamlit UI
+├── data/             # Synthetic data generator + CSV output
+├── db/               # SQLAlchemy ORM models
+├── docker/           # Dockerfiles (API + Dashboard)
+├── knowledge_base/   # Maintenance manual chunks for RAG
+├── ml/               # Feature engineering, training, prediction
+├── mlflow_tracking/  # MLflow setup utilities
+├── rag/              # FAISS index builder + retriever
+├── tests/            # pytest suites (ML, API, agents)
+├── .github/          # GitHub Actions CI/CD
+├── docker-compose.yml
+├── Makefile
+└── requirements.txt
+```
+
+---
+
+## 🤖 LLM Integration
+
+VigilAI tries LLM backends in priority order:
+
+| Priority | Provider | Env Var |
+|----------|----------|---------|
+| 1 | Google Gemini (`gemini-1.5-flash`) | `GOOGLE_API_KEY` |
+| 2 | Groq (`llama3-8b-8192`) | `GROQ_API_KEY` |
+| 3 | Ollama (local `llama3`) | `OLLAMA_BASE_URL` |
+| 4 | Rule-based fallback | — (no config needed) |
+
+---
+
+## 🧪 Running Tests
+
+```bash
+pytest tests/ -v
+```
+
+---
+
+## 📊 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/health` | API health check |
+| GET | `/sensors/latest` | Fetch recent sensor readings |
+| POST | `/sensors/ingest` | Ingest new sensor reading |
+| POST | `/ml/predict` | Run ML fault prediction |
+| POST | `/agents/diagnose` | Full agent diagnostic pipeline |
+| GET | `/agents/reports` | Fetch all stored agent reports |
+
+Interactive docs: **`http://localhost:8000/docs`**
+
+---
+
+## 📦 Makefile Shortcuts
+
+```bash
+make generate-data   # Synthetic sensor data
+make train           # Train ML models
+make build-index     # Build FAISS RAG index
+make run-api         # Start FastAPI server
+make run-dashboard   # Start Streamlit dashboard
+make test            # Run pytest
+make lint            # Run ruff linter
+```
+
+---
+
+## 📄 License
+
+MIT — see [LICENSE](LICENSE)

@@ -1,41 +1,95 @@
-version: '3.8'
+version: '3.9'
+
+networks:
+  vigilai-net:
+    driver: bridge
+
+volumes:
+  vigilai-data:
+  vigilai-models:
+  vigilai-faiss:
+  mlruns:
 
 services:
+
+  # ── FastAPI REST API ──────────────────────────────────────────────────────────
   api:
     build:
       context: .
       dockerfile: docker/Dockerfile.api
+      target: runtime
+    image: vigilai-api:latest
+    container_name: vigilai-api
+    restart: unless-stopped
     ports:
       - "8000:8000"
     volumes:
-      - ./data:/app/data
-      - ./ml/models:/app/ml/models
-      - ./rag/faiss_index:/app/rag/faiss_index
-      - ./db/vigilai.db:/app/data/vigilai.db
+      - vigilai-data:/app/data
+      - vigilai-models:/app/ml/models
+      - vigilai-faiss:/app/rag/faiss_index
     environment:
-      - DATABASE_URL=sqlite:///./data/vigilai.db
+      - ENVIRONMENT=production
+      - DATABASE_URL=sqlite:////app/data/vigilai.db
       - MLFLOW_TRACKING_URI=http://mlflow:5000
-      - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY:-}
+      - GROQ_API_KEY=${GROQ_API_KEY:-}
+      - OLLAMA_BASE_URL=${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      - LOG_FORMAT=json
+      - LOG_LEVEL=INFO
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
     depends_on:
-      - mlflow
+      mlflow:
+        condition: service_healthy
+    networks:
+      - vigilai-net
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  # ── Streamlit Dashboard ───────────────────────────────────────────────────────
   dashboard:
     build:
       context: .
       dockerfile: docker/Dockerfile.dashboard
+      target: runtime
+    image: vigilai-dashboard:latest
+    container_name: vigilai-dashboard
+    restart: unless-stopped
     ports:
       - "8501:8501"
     environment:
       - API_URL=http://api:8000
+      - ENVIRONMENT=production
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    networks:
+      - vigilai-net
 
+  # ── MLflow Experiment Tracking ────────────────────────────────────────────────
   mlflow:
-    image: ghcr.io/mlflow/mlflow
+    image: ghcr.io/mlflow/mlflow:latest
+    container_name: vigilai-mlflow
+    restart: unless-stopped
     ports:
       - "5000:5000"
     volumes:
-      - ./mlruns:/mlruns
-    command: mlflow server --host 0.0.0.0 --port 5000 --backend-store-uri sqlite:////mlruns/mlflow.db --default-artifact-root /mlruns
+      - mlruns:/mlruns
+    command: >
+      mlflow server
+        --host 0.0.0.0
+        --port 5000
+        --backend-store-uri sqlite:////mlruns/mlflow.db
+        --default-artifact-root /mlruns
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 20s
+      timeout: 8s
+      retries: 5
+      start_period: 15s
+    networks:
+      - vigilai-net

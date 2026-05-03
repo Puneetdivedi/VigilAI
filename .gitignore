@@ -1,14 +1,63 @@
+# ── Environment ────────────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+
+# ── Python ─────────────────────────────────────────────────────────────────────
 __pycache__/
 *.py[cod]
-*$py.class
-.env
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.Python
+
+# ── Virtual environments ────────────────────────────────────────────────────────
+venv/
 .venv/
 env/
-venv/
 ENV/
-env.bak/
-venv.bak/
-.idea/
+
+# ── Testing / Coverage ─────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+.ruff_cache/
+
+# ── ML artefacts (generated — not committed) ────────────────────────────────────
+ml/models/*.pkl
+ml/models/*.joblib
+
+# ── Data (generated — not committed) ───────────────────────────────────────────
+data/*.csv
+data/*.db
+data/*.sqlite
+
+# ── FAISS index (generated — not committed) ────────────────────────────────────
+rag/faiss_index/
+
+# ── MLflow runs ────────────────────────────────────────────────────────────────
+mlruns/
+mlartifacts/
+
+# ── Database files ─────────────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── IDEs / Editors ─────────────────────────────────────────────────────────────
 .vscode/
+.idea/
 *.swp
 *.swo
+*~
+
+# ── OS ─────────────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini

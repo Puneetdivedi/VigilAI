@@ -28,3 +28,7 @@ def retrieve_context(query: str) -> str:
     
     docs = retriever.invoke(query)
     return "\n".join([d.page_content for d in docs])
+
+def is_index_ready() -> bool:
+    """Checks if the FAISS index files exist on disk."""
+    return os.path.exists(os.path.join(index_dir, "index.faiss"))

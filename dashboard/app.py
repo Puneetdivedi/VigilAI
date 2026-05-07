@@ -341,10 +341,18 @@ def render_report_card(report):
 with st.sidebar:
     st.markdown('<div style="font-size:1.5rem; font-weight:800; color:var(--primary); margin-bottom:1.5rem;">VigilAI</div>', unsafe_allow_html=True)
     
-    health = fetch_health()
-    status_cls = "offline" if not health or health.get("status") != "ok" else ""
-    status_text = "SYSTEM ONLINE" if not status_cls else "SYSTEM OFFLINE"
-    st.markdown(f'<div class="v-status-pill {status_cls}"><span class="pulse">●</span> {status_text}</div>', unsafe_allow_html=True)
+    if health.get("status") == "ok":
+        st.markdown('<div class="v-status-pill"><span class="pulse">●</span> API ONLINE</div>', unsafe_allow_html=True)
+        # Detailed status
+        c_status1, c_status2 = st.columns(2)
+        with c_status1:
+            st.caption("ML Models")
+            st.markdown("✅ Ready" if health.get("models_loaded") else "❌ Missing")
+        with c_status2:
+            st.caption("RAG Index")
+            st.markdown("✅ Ready" if health.get("rag_ok") else "❌ Missing")
+    else:
+        st.markdown('<div class="v-status-pill offline"><span class="pulse">●</span> API OFFLINE</div>', unsafe_allow_html=True)
     
     st.markdown("### Control Plane")
     refresh = st.toggle("Auto-Refresh", value=True)

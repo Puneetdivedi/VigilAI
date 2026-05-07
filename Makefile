@@ -66,6 +66,13 @@ test:  ## Run tests with coverage
 test-fast:  ## Run tests (no coverage, faster)
 	pytest tests/ -v --tb=short
 
+check:  ## Verify system readiness (DB, ML models, RAG index)
+	@echo "Checking system readiness..."
+	@$(PYTHON) -c "from db.models import engine; engine.connect(); print('✅ Database connection: OK')"
+	@$(PYTHON) -c "from ml.predict import models_ready; print('✅ ML Models: ' + ('Ready' if models_ready() else 'Not found'))"
+	@$(PYTHON) -c "from rag.retriever import is_index_ready; print('✅ RAG Index: ' + ('Ready' if is_index_ready() else 'Not found'))"
+	@echo "All checks complete."
+
 # ── Docker ───────────────────────────────────────────────────────────────────────
 docker-up:  ## Build and start all Docker services
 	docker-compose up --build -d

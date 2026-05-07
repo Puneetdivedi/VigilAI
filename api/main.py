@@ -26,6 +26,7 @@ from core.exceptions import VigilAIBaseError
 from core.logging import get_logger
 from db.models import Base, SessionLocal, engine
 from ml.predict import load_models, models_ready
+from rag.retriever import is_index_ready
 
 log = get_logger(__name__)
 _cfg = get_settings()
@@ -151,6 +152,7 @@ def health_check() -> HealthResponse:
         environment=_cfg.environment,
         db_ok=db_ok,
         models_loaded=models_ready(),
+        rag_ok=is_index_ready(),
     )
 
 

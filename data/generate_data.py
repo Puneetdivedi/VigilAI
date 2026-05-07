@@ -92,20 +92,25 @@ def generate_synthetic_data(
         profile = MACHINE_PROFILES[machine_id]
         is_fault = i in fault_indices
 
+        # Add Seasonality (Daily Cycle)
+        hour = timestamps[i].hour
+        # Sine wave peak at 2 PM (hour 14), trough at 2 AM (hour 2)
+        season_offset = np.sin((hour - 8) * 2 * np.pi / 24)
+        
         if is_fault:
             fault_type = np.random.choice(fault_types)
             spec = FAULT_SPECS[fault_type]
             # Gradual onset: fault severity ramps up over 10 preceding samples
             onset = min((i % 10) / 10.0 + 0.3, 1.0)
             vib   = max(0.0, np.random.normal(profile["base_vib"]  + spec["vib_delta"]  * onset, spec["vib_noise"]))
-            temp  = max(0.0, np.random.normal(profile["base_temp"] + spec["temp_delta"] * onset, 4.0))
+            temp  = max(0.0, np.random.normal(profile["base_temp"] + spec["temp_delta"] * onset + (season_offset * 5.0), 4.0))
             rpm   = max(0.0, np.random.normal(profile["base_rpm"]  + spec["rpm_delta"]  * onset, 60.0))
             pres  = max(0.0, np.random.normal(profile["base_pres"] + spec["pres_delta"] * onset, 0.15))
             label = fault_type
         else:
-            # Normal operating conditions with Gaussian noise + small drift
-            vib   = max(0.0, np.random.normal(profile["base_vib"],  1.2))
-            temp  = max(0.0, np.random.normal(profile["base_temp"], 3.0))
+            # Normal operating conditions with Gaussian noise + small drift + seasonality
+            vib   = max(0.0, np.random.normal(profile["base_vib"] + (season_offset * 0.5),  1.2))
+            temp  = max(0.0, np.random.normal(profile["base_temp"] + (season_offset * 5.0), 3.0))
             rpm   = max(0.0, np.random.normal(profile["base_rpm"],  40.0))
             pres  = max(0.0, np.random.normal(profile["base_pres"], 0.05))
             fault_type = "none"

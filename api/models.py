@@ -157,6 +157,7 @@ class HealthResponse(BaseModel):
     environment: str
     db_ok: bool
     models_loaded: bool
+    rag_ok: bool
 
 
 class MachineMetaResponse(BaseModel):

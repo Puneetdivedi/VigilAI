@@ -34,78 +34,85 @@ from agents.prompts import DIAGNOSIS_PROMPT
 log = get_logger(__name__)
 _cfg = get_settings()
 
-# ── LLM initialisation (module-level singleton, thread-safe) ───────────────────
+from langchain_core.runnables import RunnableConfig
+from tenacity import retry, stop_after_attempt, wait_exponential
 
-_llm: Any = None
-_llm_provider: str = "fallback"
-_llm_lock = threading.Lock()
+# ── LLM Factory ────────────────────────────────────────────────────────────────
 
+class LLMFactory:
+    """Manages LLM instances with prioritized fallback logic."""
+    
+    _instance: Optional[Any] = None
+    _provider: str = "fallback"
+    _lock = threading.Lock()
 
-def _try_gemini() -> tuple[Any, str]:
-    try:
+    @classmethod
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=4, max=10),
+        reraise=True
+    )
+    def _create_gemini(cls):
         from langchain_google_genai import ChatGoogleGenerativeAI
         if not _cfg.google_api_key:
-            return None, "fallback"
+            return None
         llm = ChatGoogleGenerativeAI(
             model=_cfg.gemini_model,
             google_api_key=_cfg.google_api_key,
             temperature=_cfg.llm_temperature,
             timeout=_cfg.llm_timeout_seconds,
         )
-        # Smoke test
         llm.invoke("ping")
-        log.info("LLM: Using Google Gemini (%s)", _cfg.gemini_model)
-        return llm, "gemini"
-    except Exception as exc:
-        log.warning("LLM: Gemini unavailable — %s", exc)
+        return llm
+
+    @classmethod
+    def get_llm(cls) -> tuple[Any, str]:
+        """Returns (llm_instance, provider_name). Thread-safe singleton."""
+        if cls._instance is not None:
+            return cls._instance, cls._provider
+            
+        with cls._lock:
+            if cls._instance is not None:
+                return cls._instance, cls._provider
+            
+            # Priority 1: Gemini
+            try:
+                llm = cls._create_gemini()
+                if llm:
+                    cls._instance, cls._provider = llm, "gemini"
+                    log.info("LLM: Using Google Gemini (%s)", _cfg.gemini_model)
+                    return cls._instance, cls._provider
+            except Exception as exc:
+                log.warning("LLM: Gemini unavailable — %s", exc)
+
+            # Priority 2: Groq
+            try:
+                from langchain_groq import ChatGroq
+                if _cfg.groq_api_key:
+                    llm = ChatGroq(model=_cfg.groq_model, groq_api_key=_cfg.groq_api_key)
+                    llm.invoke("ping")
+                    cls._instance, cls._provider = llm, "groq"
+                    log.info("LLM: Using Groq (%s)", _cfg.groq_model)
+                    return cls._instance, cls._provider
+            except Exception as exc:
+                log.warning("LLM: Groq unavailable — %s", exc)
+
+            # Priority 3: Ollama
+            try:
+                from langchain_community.llms import Ollama
+                llm = Ollama(model=_cfg.ollama_model, base_url=_cfg.ollama_base_url)
+                llm.invoke("ping")
+                cls._instance, cls._provider = llm, "ollama"
+                log.info("LLM: Using Ollama (%s)", _cfg.ollama_model)
+                return cls._instance, cls._provider
+            except Exception as exc:
+                log.warning("LLM: Ollama unavailable — %s", exc)
+
+        log.warning("LLM: No provider available — using rule-based fallback.")
         return None, "fallback"
-
-
-def _try_groq() -> tuple[Any, str]:
-    try:
-        from langchain_groq import ChatGroq
-        if not _cfg.groq_api_key:
-            return None, "fallback"
-        llm = ChatGroq(
-            model=_cfg.groq_model,
-            groq_api_key=_cfg.groq_api_key,
-            temperature=_cfg.llm_temperature,
-        )
-        llm.invoke("ping")
-        log.info("LLM: Using Groq (%s)", _cfg.groq_model)
-        return llm, "groq"
-    except Exception as exc:
-        log.warning("LLM: Groq unavailable — %s", exc)
-        return None, "fallback"
-
-
-def _try_ollama() -> tuple[Any, str]:
-    try:
-        from langchain_community.llms import Ollama
-        llm = Ollama(model=_cfg.ollama_model, base_url=_cfg.ollama_base_url)
-        llm.invoke("ping")
-        log.info("LLM: Using Ollama (%s)", _cfg.ollama_model)
-        return llm, "ollama"
-    except Exception as exc:
-        log.warning("LLM: Ollama unavailable — %s", exc)
-        return None, "fallback"
-
 
 def get_llm() -> tuple[Any, str]:
-    """Returns (llm_instance, provider_name). Thread-safe singleton."""
-    global _llm, _llm_provider
-    if _llm is not None:
-        return _llm, _llm_provider
-    with _llm_lock:
-        if _llm is not None:
-            return _llm, _llm_provider
-        for loader in (_try_gemini, _try_groq, _try_ollama):
-            llm, provider = loader()
-            if llm is not None:
-                _llm, _llm_provider = llm, provider
-                return _llm, _llm_provider
-    log.warning("LLM: No provider available — using rule-based fallback.")
-    return None, "fallback"
+    return LLMFactory.get_llm()
 
 
 # ── Rule-based fallback ────────────────────────────────────────────────────────

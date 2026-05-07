@@ -10,7 +10,7 @@ import pandas as pd
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from api.models import AgentDiagnosisResponse, AgentReportResponse, SensorReadingCreate
+from ..models import AgentDiagnosisResponse, AgentReportResponse, SensorReadingCreate
 from core.exceptions import DiagnosticPipelineError
 from core.logging import get_logger
 from agents.graph import run_diagnostic_pipeline
@@ -81,15 +81,18 @@ def get_reports(
     machine_id: Optional[str] = Query(default=None, description="Filter by machine ID"),
     severity: Optional[str] = Query(default=None, description="Filter by severity (Low/Medium/High/Critical)"),
     limit: int = Query(default=50, ge=1, le=500),
+    offset: int = Query(default=0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_db),
-) -> list[AgentReport]:
-    """Returns historical agent diagnostic reports, newest first."""
+) -> List[AgentReportResponse]:
+    """Returns historical agent diagnostic reports, newest first, with pagination support."""
     q = db.query(AgentReport).order_by(AgentReport.timestamp.desc())
     if machine_id:
         q = q.filter(AgentReport.machine_id == machine_id)
     if severity:
         q = q.filter(AgentReport.severity == severity)
-    return q.limit(limit).all()
+    # Apply pagination
+    q = q.offset(offset).limit(limit)
+    return q.all()
 
 
 @router.get(

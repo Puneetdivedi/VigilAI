@@ -1,0 +1,41 @@
+[project]
+name = "vigilai"
+version = "3.0.0"
+description = "Industrial-grade AI platform for equipment fault detection"
+authors = [{ name = "VigilAI Team" }]
+dependencies = [
+    "fastapi",
+    "uvicorn",
+    "sqlalchemy",
+    "pydantic",
+    "pydantic-settings",
+    "pandas",
+    "numpy",
+    "scikit-learn",
+    "langchain",
+    "langgraph",
+    "langchain-google-genai",
+    "langchain-groq",
+    "faiss-cpu",
+    "sentence-transformers",
+    "mlflow",
+    "python-multipart",
+    "psutil",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "S", "B", "A", "C4", "T20", "RET", "SIM", "ARG", "PTH", "ERA", "PL"]
+ignore = ["S101", "S311", "PLR0913"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-v --cov=. --cov-report=term-missing"
+
+[tool.coverage.run]
+source = ["."]
+omit = ["tests/*", "venv/*", ".git/*"]

@@ -29,12 +29,11 @@ from core.exceptions import LLMUnavailableError
 from ml.predict import predict, load_models
 from ml.feature_engineering import extract_features_single
 from rag.retriever import retrieve_context
-from agents.prompts import DIAGNOSIS_PROMPT
+from .prompts import DIAGNOSIS_PROMPT
 
 log = get_logger(__name__)
 _cfg = get_settings()
 
-from langchain_core.runnables import RunnableConfig
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 # ── LLM Factory ────────────────────────────────────────────────────────────────

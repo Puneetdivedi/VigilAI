@@ -21,6 +21,7 @@ dependencies = [
     "mlflow",
     "python-multipart",
     "psutil",
+    "tenacity",
 ]
 
 [tool.ruff]

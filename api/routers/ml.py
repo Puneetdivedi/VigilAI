@@ -109,13 +109,14 @@ def predict_fault(
 def get_prediction_history(
     machine_id: Optional[str] = Query(default=None, description="Filter by machine ID"),
     limit: int = Query(default=100, ge=1, le=1000),
+    offset: int = Query(default=0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_db),
 ) -> list[FaultPrediction]:
     """Returns historical fault predictions, newest first."""
     q = db.query(FaultPrediction).order_by(FaultPrediction.timestamp.desc())
     if machine_id:
         q = q.filter(FaultPrediction.machine_id == machine_id)
-    return q.limit(limit).all()
+    return q.offset(offset).limit(limit).all()
 
 
 @router.get(

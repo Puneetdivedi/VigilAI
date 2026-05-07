@@ -61,6 +61,7 @@ def ingest_sensor_data(
 def get_latest_sensors(
     machine_id: Optional[str] = Query(default=None, description="Filter by machine ID"),
     limit: int = Query(default=200, ge=1, le=1000, description="Max rows to return"),
+    offset: int = Query(default=0, ge=0, description="Pagination offset"),
     db: Session = Depends(get_db),
 ) -> list[SensorReading]:
     """
@@ -70,7 +71,7 @@ def get_latest_sensors(
     q = db.query(SensorReading).order_by(SensorReading.timestamp.desc())
     if machine_id:
         q = q.filter(SensorReading.machine_id == machine_id)
-    return q.limit(limit).all()
+    return q.offset(offset).limit(limit).all()
 
 
 @router.get(
